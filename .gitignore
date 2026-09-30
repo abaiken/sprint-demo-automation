@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+config.toml
+credentials.json
+google_token.json
+*Hire dates*.csv
+*hire dates*.csv
+*hire-date*.csv
+*hire_dates*.csv

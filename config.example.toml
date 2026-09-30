@@ -1,0 +1,27 @@
+timezone = "America/New_York"
+next_demo_event_title = "Sprint Demo"
+calendar_id = "primary"
+calendar_search_window_days = 90
+next_deck_date_offset_days = 14
+ceremony_lookahead_days = 21
+source_drive_folder_id = ""
+source_drive_folder_url = ""
+source_presentation_id = ""
+source_presentation_url = ""
+destination_drive_folder_id = ""
+destination_drive_folder_url = ""
+# Keep this as a path to a CSV outside the repo. Do not copy hire-date data into this project.
+default_hire_dates_csv = ""
+google_credentials_path = ""
+google_token_path = ""
+new_deck_name_template = "Sprint Demo - {{nextDate}}"
+lead_reminder_template = "Leads: please fill out your sprint demo slides for {{deckName}}: {{deckUrl}}"
+rotate_team_order_for_next_sprint = true
+slack_channel = "#team-demo"
+
+team_order = [
+  "team-alpha",
+  "team-beta",
+  "team-gamma",
+  "team-delta",
+]
