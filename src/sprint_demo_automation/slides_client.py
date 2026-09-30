@@ -359,7 +359,7 @@ def rotate_slide_blocks(
 ) -> list[SlideBlock]:
     if not should_rotate or len(slide_blocks) < 2:
         return list(slide_blocks)
-    return [*slide_blocks[1:], slide_blocks[0]]
+    return [slide_blocks[-1], *slide_blocks[:-1]]
 
 
 def is_skipped_slide(slide: dict) -> bool:

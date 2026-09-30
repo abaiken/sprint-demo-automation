@@ -309,7 +309,7 @@ def load_create_deck_anniversaries(
 def rotate_team_order(team_order: list[str], should_rotate: bool) -> list[str]:
     if not should_rotate or len(team_order) < 2:
         return list(team_order)
-    return [*team_order[1:], team_order[0]]
+    return [team_order[-1], *team_order[:-1]]
 
 
 def build_lead_reminder_message(

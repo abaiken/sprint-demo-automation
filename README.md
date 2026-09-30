@@ -10,7 +10,7 @@ This project copies the latest sprint demo deck, updates the next demo date, rot
 - Finds the source presentation from a Google Drive folder or explicit Slides URL
 - Copies the deck into Drive
 - Updates the cover date range
-- Rotates the presenter order for the next sprint
+- Rotates the presenter order for the next sprint by moving the last active team to the front
 - Detects skipped team title slides and moves those teams to the end without including them in the active rotation
 - Clears demo-slide content while preserving formatting
 - Clears walkout-slide person-specific content while preserving labels and styling
@@ -233,7 +233,7 @@ The deck copy flow currently does all of this:
 - copies the source deck
 - renames it based on the next demo date
 - updates the cover date range
-- rotates presenter order
+- rotates presenter order by moving the last active team to the front
 - keeps skipped team title slides at the end and out of the active team rotation
 - normalizes demo slides
 - clears the walkout slide person-specific content
