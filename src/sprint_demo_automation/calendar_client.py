@@ -4,9 +4,11 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .config import AppConfig
-from .google_services import CALENDAR_SCOPES, DRIVE_SCOPES, SLIDES_SCOPES
+from .google_services import CALENDAR_SCOPES, DRIVE_SCOPES, SHEETS_SCOPES, SLIDES_SCOPES
 
-ALL_REQUIRED_SCOPES = sorted(set(CALENDAR_SCOPES + DRIVE_SCOPES + SLIDES_SCOPES))
+ALL_REQUIRED_SCOPES = sorted(
+    set(CALENDAR_SCOPES + DRIVE_SCOPES + SLIDES_SCOPES + SHEETS_SCOPES)
+)
 
 
 def compute_next_demo_date(config: AppConfig) -> datetime:

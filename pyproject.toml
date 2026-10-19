@@ -2,6 +2,7 @@
 name = "sprint-demo-automation"
 version = "0.1.0"
 description = "Local Python tooling for sprint demo ceremony coordination"
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "google-api-python-client>=2.100.0",

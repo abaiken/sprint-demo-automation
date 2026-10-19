@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .config import AppConfig
-from .csv_support import get_named_value, read_csv_records
+from .csv_support import get_named_value
+from .hire_dates import hire_date_source_configured, load_hire_date_records
 from .messages import (
     build_coordinator_summary_message,
     build_mc_request_message,
@@ -37,7 +37,7 @@ def build_dry_run_plan(config: AppConfig, hire_dates_csv: str) -> dict:
     from .drive_client import resolve_source_presentation
 
     next_demo_date = compute_next_demo_date(config)
-    records = read_csv_records(hire_dates_csv)
+    records = load_hire_date_records(config, csv_path_override=hire_dates_csv)
     anniversaries = find_upcoming_anniversaries(
         records, next_demo_date, config.ceremony_lookahead_days, config.timezone
     )
@@ -234,15 +234,13 @@ def build_create_deck_todo(
     deck_url: str,
     source_presentation_id: str,
 ) -> str:
-    hire_dates_available = bool(
-        config.default_hire_dates_csv and Path(config.default_hire_dates_csv).exists()
-    )
+    hire_dates_available = hire_date_source_configured(config)
     anniversaries = (
         load_create_deck_anniversaries(config, source_presentation_id, next_demo_date)
         if hire_dates_available
         else []
     )
-    records = read_csv_records(config.default_hire_dates_csv) if hire_dates_available else []
+    records = load_hire_date_records(config) if hire_dates_available else []
     walkout_candidate, walkout_reason = choose_walkout_candidate(records)
 
     if hire_dates_available:
@@ -253,10 +251,10 @@ def build_create_deck_todo(
         )
     else:
         anniversary_lines = [
-            "- Skipped: no hire-dates CSV configured locally"
+            "- Skipped: no hire-dates source configured"
         ]
 
-    walkout_section = ["- Skipped: no hire-dates CSV configured locally"]
+    walkout_section = ["- Skipped: no hire-dates source configured"]
     if hire_dates_available and walkout_candidate:
         walkout_section = [
             f"- {walkout_candidate.name}"
@@ -296,7 +294,7 @@ def load_create_deck_anniversaries(
     from .google_services import build_slides_service
     from .slides_client import load_upcoming_anniversaries
 
-    if not config.default_hire_dates_csv:
+    if not hire_date_source_configured(config):
         return []
 
     slides_service = build_slides_service(config)

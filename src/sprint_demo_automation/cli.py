@@ -27,11 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     dry_run = subparsers.add_parser(
-        "dry-run", help="Build a local coordinator dry run from the hire-dates CSV"
+        "dry-run", help="Build a local coordinator dry run from the configured hire-dates source"
     )
     dry_run.add_argument(
         "--hire-dates-csv",
-        help="Path to the exported hire-dates CSV. Defaults to config.default_hire_dates_csv",
+        help="Optional CSV override. Defaults to the configured hire-dates source",
     )
     dry_run.add_argument(
         "--folder-id",
@@ -102,9 +102,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "dry-run":
         hire_dates_csv = args.hire_dates_csv or config.default_hire_dates_csv
-        if not hire_dates_csv:
+        if not hire_dates_csv and not config.hire_dates_sheet_id and not config.hire_dates_sheet_url:
             parser.error(
-                "dry-run requires --hire-dates-csv or default_hire_dates_csv in config.toml"
+                "dry-run requires --hire-dates-csv, SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV, or a configured hire-dates Google Sheet"
             )
         if args.folder_id:
             config.source_drive_folder_id = args.folder_id

@@ -13,7 +13,7 @@ from .deck_defaults import (
     TEAM_CONFIGS,
     TeamConfig,
 )
-from .drive_client import get_file_metadata
+from .drive_client import delete_file, get_file_metadata
 from .google_ids import extract_google_file_id
 from .google_services import build_drive_service, build_slides_service
 
@@ -45,11 +45,18 @@ def create_next_sprint_deck(config: AppConfig, next_demo_date: datetime) -> dict
         destination_folder_id=config.destination_drive_folder_id or None,
         source_parent_ids=source.get("parents") or [],
     )
-    update_result = apply_standard_updates(
-        config,
-        copied["id"],
-        next_demo_date,
-    )
+    try:
+        update_result = apply_standard_updates(
+            config,
+            copied["id"],
+            next_demo_date,
+        )
+    except Exception:
+        try:
+            delete_file(config, copied["id"])
+        except Exception:
+            pass
+        raise
     return {
         "nextDemoDate": next_demo_date.date().isoformat(),
         "sourcePresentation": source,
@@ -570,16 +577,7 @@ def build_fixed_range_delete_requests(
     object_id: str, shape: dict, ranges: list[tuple[int, int]]
 ) -> list[dict]:
     requests: list[dict] = []
-    text_length = max_deletable_text_index(shape, shape_text(shape))
-    seen: set[tuple[int, int]] = set()
-    for start, end in reversed(ranges):
-        if (start, end) in seen:
-            continue
-        seen.add((start, end))
-        start = max(0, min(start, text_length))
-        end = max(start, min(end, text_length))
-        if end <= start:
-            continue
+    for start, end in normalize_delete_ranges(shape, shape_text(shape), ranges):
         requests.append(
             {
                 "deleteText": {
@@ -973,7 +971,6 @@ def build_text_range_deletion_requests(
     capture_group: int,
 ) -> list[dict]:
     requests: list[dict] = []
-    text_length = max_deletable_text_index(shape, original_text)
     ranges: list[tuple[int, int]] = []
     for pattern in patterns:
         for match in re.finditer(pattern, original_text):
@@ -984,15 +981,7 @@ def build_text_range_deletion_requests(
             end = match.end(capture_group)
             ranges.append((start, end))
 
-    seen: set[tuple[int, int]] = set()
-    for start, end in reversed(ranges):
-        if (start, end) in seen:
-            continue
-        seen.add((start, end))
-        start = max(0, min(start, text_length))
-        end = max(start, min(end, text_length))
-        if end <= start:
-            continue
+    for start, end in normalize_delete_ranges(shape, original_text, ranges):
         requests.append(
             {
                 "deleteText": {
@@ -1011,22 +1000,28 @@ def build_text_range_deletion_requests(
 def load_upcoming_anniversaries(
     config: AppConfig, presentation: dict, next_demo_date: datetime
 ):
-    from .csv_support import read_csv_records
+    from .hire_dates import load_hire_date_records
     from .planner import Anniversary, parse_date
-
-    csv_path = config.default_hire_dates_csv
-    if not csv_path or not Path(csv_path).exists():
-        return []
 
     _, previous_end_text = parse_cover_range(presentation)
     if previous_end_text:
-        previous_demo_date = datetime.strptime(previous_end_text, "%b %d, %Y").date()
+        previous_demo_date = None
+        for fmt in ("%b %d, %Y", "%B %d, %Y"):
+            try:
+                previous_demo_date = datetime.strptime(previous_end_text, fmt).date()
+                break
+            except ValueError:
+                continue
+        if previous_demo_date is None:
+            raise ValueError(f"Unsupported cover date format: {previous_end_text!r}")
     else:
         previous_demo_date = (
             next_demo_date - timedelta(days=config.next_deck_date_offset_days)
         ).date()
 
-    records = read_csv_records(csv_path)
+    records = load_hire_date_records(config)
+    if not records:
+        return []
     next_demo_day = next_demo_date.date()
     anniversaries: list[Anniversary] = []
 
@@ -1149,12 +1144,9 @@ def build_answer_deletion_requests(
     object_id: str, shape: dict, original_text: str
 ) -> list[dict]:
     requests: list[dict] = []
-    text_length = max_deletable_text_index(shape, original_text)
-    for start, end in reversed(find_demo_answer_ranges(original_text)):
-        start = max(0, min(start, text_length))
-        end = max(start, min(end, text_length))
-        if end <= start:
-            continue
+    for start, end in normalize_delete_ranges(
+        shape, original_text, find_demo_answer_ranges(original_text)
+    ):
         requests.append(
             {
                 "deleteText": {
@@ -1176,6 +1168,45 @@ def max_deletable_text_index(shape: dict, original_text: str) -> int:
     if max_end <= 0:
         return len(original_text)
     return max(0, max_end - 1)
+
+
+def normalize_delete_ranges(
+    shape: dict, original_text: str, ranges: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    text_length = max_deletable_text_index(shape, original_text)
+    clamped: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+
+    for start, end in ranges:
+        start = max(0, min(start, text_length))
+        end = max(start, min(end, text_length))
+        if end <= start:
+            continue
+        item = (start, end)
+        if item in seen:
+            continue
+        seen.add(item)
+        clamped.append(item)
+
+    if not clamped:
+        return []
+
+    clamped.sort(key=lambda item: (item[0], item[1]))
+    merged: list[tuple[int, int]] = []
+    for start, end in clamped:
+        if not merged:
+            merged.append((start, end))
+            continue
+
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+            continue
+
+        merged.append((start, end))
+
+    merged.reverse()
+    return merged
 
 
 def find_demo_answer_ranges(text: str) -> list[tuple[int, int]]:
@@ -1236,7 +1267,16 @@ def parse_cover_range(presentation: dict) -> tuple[str | None, str | None]:
 
 
 def format_cover_range(previous_end_text: str, next_demo: datetime) -> str:
-    previous_end = datetime.strptime(previous_end_text, "%b %d, %Y")
+    previous_end = None
+    for fmt in ("%b %d, %Y", "%B %d, %Y"):
+        try:
+            previous_end = datetime.strptime(previous_end_text, fmt)
+            break
+        except ValueError:
+            continue
+    if previous_end is None:
+        raise ValueError(f"Unsupported cover date format: {previous_end_text!r}")
+
     new_start = previous_end + timedelta(days=1)
     new_end = next_demo.replace(tzinfo=None)
     return (

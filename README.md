@@ -14,7 +14,7 @@ This project copies the latest sprint demo deck, updates the next demo date, rot
 - Detects skipped team title slides and moves those teams to the end without including them in the active rotation
 - Clears demo-slide content while preserving formatting
 - Clears walkout-slide person-specific content while preserving labels and styling
-- Updates the anniversary slide with the upcoming anniversaries from the hire-dates CSV, when available
+- Updates the anniversary slide with the upcoming anniversaries from the configured hire-dates source, when available
 - Prints a coordinator TODO summary instead of raw JSON
 
 ## Coordinator Output
@@ -26,7 +26,7 @@ When you run `create-deck`, the tool now prints:
 3. The most likely walkout-song candidate, plus a message you can send them
 4. A message you can send to the MC group
 
-If you do not have a local hire-dates CSV, the tool still runs. In that case it skips:
+If you do not have a hire-dates source configured, the tool still runs. In that case it skips:
 
 - anniversary suggestions
 - walkout candidate suggestions
@@ -64,6 +64,38 @@ pip install -e .
 cp .env.example .env
 ```
 
+## Install As A Package
+
+This project is already packaged as a Python CLI tool. People with access to the private GitHub repo can install it directly.
+
+### Option 1: Install Into A Virtualenv
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install "git+https://github.com/abaiken/sprint-demo-automation.git"
+```
+
+### Option 2: Install As A CLI With `pipx`
+
+If someone wants the `sprint-demo` command available without manually activating a virtualenv each time:
+
+```bash
+pipx install "git+https://github.com/abaiken/sprint-demo-automation.git"
+```
+
+After either install path, they can run:
+
+```bash
+sprint-demo create-deck
+```
+
+Notes:
+
+- they must have access to the private GitHub repo
+- they still need their own `.env` file with Google credentials and local paths
+- they should keep the hire-dates CSV outside the repo and point to it by path
+
 ## Quick Start For A Teammate
 
 1. Clone the repo somewhere local
@@ -75,7 +107,7 @@ cp .env.example .env
    - a Google token path
    - the source Drive folder or source presentation
    - optionally a destination Drive folder
-   - optionally a local hire-dates CSV path outside the repo
+   - optionally either a local hire-dates CSV path outside the repo or a Google Sheets URL/ID
 6. Run `sprint-demo create-deck`
 
 ## Google Setup
@@ -135,13 +167,17 @@ Edit `.env` and set:
 - `SPRINT_DEMO_SOURCE_DRIVE_FOLDER_URL` or `SPRINT_DEMO_SOURCE_PRESENTATION_URL`
 - optional `SPRINT_DEMO_DESTINATION_DRIVE_FOLDER_URL`
 - optional `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV`
+- optional `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID`
+- optional `SPRINT_DEMO_HIRE_DATES_SHEET_RANGE`
 - `SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH`
 - `SPRINT_DEMO_GOOGLE_TOKEN_PATH`
 
 Notes:
 
-- `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV` is optional
-- `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV` should be an absolute path to a CSV outside this repo
+- the hire-dates source is optional
+- if you use `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV`, it should be an absolute path to a CSV outside this repo
+- if you use Google Sheets, set `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID`
+- `SPRINT_DEMO_HIRE_DATES_SHEET_RANGE` is optional; if omitted, the tool reads the first worksheet
 - do not copy the hire-dates export into this project directory
 - if the configured title does not match exactly, the tool still tries to find the next likely sprint-demo event
 - the tool accepts normal Google Drive and Google Slides URLs, not just raw IDs
@@ -155,6 +191,9 @@ SPRINT_DEMO_DESTINATION_DRIVE_FOLDER_URL="https://drive.google.com/drive/folders
 SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH="/absolute/path/to/credentials.json"
 SPRINT_DEMO_GOOGLE_TOKEN_PATH="/absolute/path/to/google_token.json"
 SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV="/absolute/path/to/hire-dates.csv"
+# OR use a Google Sheet instead of a local CSV
+SPRINT_DEMO_HIRE_DATES_SHEET_URL="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
+SPRINT_DEMO_HIRE_DATES_SHEET_RANGE="Hire dates!A:Z"
 ```
 
 ## Optional TOML Config
@@ -168,10 +207,10 @@ A ceremonies coordinator only needs to do these things:
 1. Install Python dependencies
 2. Create a local `.env`
 3. Point the tool at a Google OAuth client file
-4. Optionally set a local hire-dates CSV path
+4. Optionally set a hire-dates source, either a local CSV path or a Google Sheet
 5. Run `create-deck`
 
-If they skip the hire-dates CSV, they will still get:
+If they skip the hire-dates source, they will still get:
 
 - the copied deck
 - the deck link
@@ -183,7 +222,7 @@ They just will not get:
 - anniversary-photo TODOs
 - walkout-candidate suggestions
 
-That CSV is intentionally optional because we do not want hire-date data committed to the repo. The tool only needs a filesystem path to the exported file.
+A local CSV is intentionally optional because we do not want hire-date data committed to the repo. If you use a Google Sheet instead, the tool reads it directly and avoids a local copy altogether.
 
 ## Usage
 
@@ -261,8 +300,9 @@ This project now ignores:
 
 Those files are local-only and should not be committed.
 
-The intended workflow for hire-date data is:
+The intended workflow for hire-date data is one of these:
 
-1. Export the CSV somewhere outside this repo
-2. Point `default_hire_dates_csv` or `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV` at that file
-3. Keep the data file out of version control entirely
+1. Preferred: point `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID` at the live Google Sheet
+2. Fallback: export the CSV somewhere outside this repo
+3. If using CSV, point `default_hire_dates_csv` or `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV` at that file
+4. Keep any local data file out of version control entirely

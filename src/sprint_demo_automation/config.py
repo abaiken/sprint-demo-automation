@@ -30,6 +30,9 @@ class AppConfig:
     destination_drive_folder_id: str = ""
     destination_drive_folder_url: str = ""
     default_hire_dates_csv: str = ""
+    hire_dates_sheet_id: str = ""
+    hire_dates_sheet_url: str = ""
+    hire_dates_sheet_range: str = ""
     new_deck_name_template: str = "Sprint Demo - {{nextDate}}"
     lead_reminder_template: str = (
         "Leads: please fill out your sprint demo slides for {{deckName}}: {{deckUrl}}"
@@ -128,6 +131,24 @@ def load_config(config_path: str | None = None) -> AppConfig:
             "SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV",
             raw,
             "default_hire_dates_csv",
+            "",
+        ),
+        hire_dates_sheet_id=_env_or_raw(
+            "SPRINT_DEMO_HIRE_DATES_SHEET_ID",
+            raw,
+            "hire_dates_sheet_id",
+            "",
+        ),
+        hire_dates_sheet_url=_env_or_raw(
+            "SPRINT_DEMO_HIRE_DATES_SHEET_URL",
+            raw,
+            "hire_dates_sheet_url",
+            "",
+        ),
+        hire_dates_sheet_range=_env_or_raw(
+            "SPRINT_DEMO_HIRE_DATES_SHEET_RANGE",
+            raw,
+            "hire_dates_sheet_range",
             "",
         ),
         new_deck_name_template=_env_or_raw(
