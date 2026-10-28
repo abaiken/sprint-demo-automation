@@ -38,7 +38,21 @@ def load_google_credentials(
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(credentials_file), scopes
             )
-            creds = flow.run_local_server(port=0)
+            try:
+                creds = flow.run_local_server(port=0)
+            except PermissionError:
+                auth_url, _ = flow.authorization_url(
+                    access_type="offline",
+                    prompt="consent",
+                )
+                print(
+                    "Local browser callback auth is unavailable in this environment.\n"
+                    "Open this URL, complete Google sign-in, then paste the full redirected URL here:\n"
+                    f"{auth_url}"
+                )
+                authorization_response = input("Redirected URL: ").strip()
+                flow.fetch_token(authorization_response=authorization_response)
+                creds = flow.credentials
 
         token_file.write_text(creds.to_json())
 

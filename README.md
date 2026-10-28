@@ -106,6 +106,7 @@ Notes:
    - a Google OAuth desktop client JSON
    - a Google token path
    - the source Drive folder or source presentation
+   - the presenter team order
    - optionally a destination Drive folder
    - optionally either a local hire-dates CSV path outside the repo or a Google Sheets URL/ID
 6. Run `sprint-demo create-deck`
@@ -158,6 +159,7 @@ SPRINT_DEMO_GOOGLE_TOKEN_PATH=/absolute/path/to/google_token.json
 ```
 
 On the first calendar-backed or Slides-backed run, a browser window opens for consent and stores a token locally.
+If the local browser callback cannot bind to a localhost port, the tool falls back to a manual flow: it prints an auth URL and prompts you to paste the redirected URL back into the terminal.
 
 ## Environment Variables
 
@@ -169,6 +171,7 @@ Edit `.env` and set:
 - optional `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV`
 - optional `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID`
 - optional `SPRINT_DEMO_HIRE_DATES_SHEET_RANGE`
+- `SPRINT_DEMO_TEAM_ORDER`
 - `SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH`
 - `SPRINT_DEMO_GOOGLE_TOKEN_PATH`
 
@@ -178,6 +181,7 @@ Notes:
 - if you use `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV`, it should be an absolute path to a CSV outside this repo
 - if you use Google Sheets, set `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID`
 - `SPRINT_DEMO_HIRE_DATES_SHEET_RANGE` is optional; if omitted, the tool reads the first worksheet
+- `SPRINT_DEMO_TEAM_ORDER` should be a comma-separated list like `team-alpha,team-beta,team-gamma`
 - do not copy the hire-dates export into this project directory
 - if the configured title does not match exactly, the tool still tries to find the next likely sprint-demo event
 - the tool accepts normal Google Drive and Google Slides URLs, not just raw IDs
@@ -194,11 +198,12 @@ SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV="/absolute/path/to/hire-dates.csv"
 # OR use a Google Sheet instead of a local CSV
 SPRINT_DEMO_HIRE_DATES_SHEET_URL="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
 SPRINT_DEMO_HIRE_DATES_SHEET_RANGE="Hire dates!A:Z"
+SPRINT_DEMO_TEAM_ORDER="team-alpha,team-beta,team-gamma,team-delta"
 ```
 
 ## Optional TOML Config
 
-If someone prefers a local config file instead of `.env`, they can still copy `config.example.toml` to `config.toml` and use that. `.env` is the recommended setup path for teammates.
+If someone prefers a local config file instead of `.env`, they can still copy `config.example.toml` to `config.toml` and use that. `.env` is the recommended setup path for teammates, including team order.
 
 ## Ceremony Coordinator Setup
 
@@ -207,8 +212,9 @@ A ceremonies coordinator only needs to do these things:
 1. Install Python dependencies
 2. Create a local `.env`
 3. Point the tool at a Google OAuth client file
-4. Optionally set a hire-dates source, either a local CSV path or a Google Sheet
-5. Run `create-deck`
+4. Set the presenter team order in `.env`
+5. Optionally set a hire-dates source, either a local CSV path or a Google Sheet
+6. Run `create-deck`
 
 If they skip the hire-dates source, they will still get:
 

@@ -177,7 +177,12 @@ def load_config(config_path: str | None = None) -> AppConfig:
             "slack_channel",
             "#team-demo",
         ),
-        team_order=list(raw.get("team_order", [])),
+        team_order=_env_or_raw_list(
+            "SPRINT_DEMO_TEAM_ORDER",
+            raw,
+            "team_order",
+            [],
+        ),
         google_credentials_path=_env_or_raw(
             "SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH",
             raw,
@@ -195,6 +200,21 @@ def load_config(config_path: str | None = None) -> AppConfig:
 
 def _env_or_raw(env_key: str, raw: dict, raw_key: str, default):
     return os.environ.get(env_key, raw.get(raw_key, default))
+
+
+def _env_or_raw_list(env_key: str, raw: dict, raw_key: str, default: list[str]) -> list[str]:
+    env_value = os.environ.get(env_key)
+    if env_value is not None:
+        return [item.strip() for item in env_value.split(",") if item.strip()]
+
+    raw_value = raw.get(raw_key, default)
+    if isinstance(raw_value, list):
+        return [str(item).strip() for item in raw_value if str(item).strip()]
+
+    if isinstance(raw_value, str):
+        return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+    return list(default)
 
 
 def _parse_bool(value) -> bool:
