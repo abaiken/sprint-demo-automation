@@ -42,6 +42,7 @@ class AppConfig:
     team_order: list[str] = field(default_factory=list)
     google_credentials_path: str = "credentials.json"
     google_token_path: str = "google_token.json"
+    google_backend: str = "auto"
 
 
 def load_config(config_path: str | None = None) -> AppConfig:
@@ -194,6 +195,12 @@ def load_config(config_path: str | None = None) -> AppConfig:
             raw,
             "google_token_path",
             "google_token.json",
+        ),
+        google_backend=_env_or_raw(
+            "SPRINT_DEMO_GOOGLE_BACKEND",
+            raw,
+            "google_backend",
+            "auto",
         ),
     )
 

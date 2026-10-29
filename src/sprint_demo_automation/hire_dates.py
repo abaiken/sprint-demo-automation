@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from .config import AppConfig
 from .csv_support import normalize_header, normalize_row, read_csv_records
 from .google_ids import extract_google_file_id
-from .google_services import build_sheets_service
+from .google_backend import get_backend
 
 
 def load_hire_date_records(
@@ -61,14 +61,13 @@ def read_google_sheet_records(
     spreadsheet_id: str,
     cell_range: str = "",
 ) -> list[dict[str, str]]:
-    service = build_sheets_service(config)
+    backend = get_backend(config)
 
     resolved_range = cell_range.strip()
     if not resolved_range:
-        metadata = (
-            service.spreadsheets()
-            .get(spreadsheetId=spreadsheet_id, fields="sheets(properties(title,sheetId))")
-            .execute()
+        metadata = backend.get_sheet_metadata(
+            spreadsheet_id=spreadsheet_id,
+            fields="sheets(properties(title,sheetId))",
         )
         sheets = metadata.get("sheets", [])
         if not sheets:
@@ -86,11 +85,8 @@ def read_google_sheet_records(
         chosen_title = chosen_sheet.get("properties", {}).get("title", "").replace("'", "''")
         resolved_range = f"'{chosen_title}'!A:Z"
 
-    result = (
-        service.spreadsheets()
-        .values()
-        .get(spreadsheetId=spreadsheet_id, range=resolved_range)
-        .execute()
+    result = backend.get_sheet_values(
+        spreadsheet_id=spreadsheet_id, cell_range=resolved_range
     )
     values = result.get("values", [])
     if not values:

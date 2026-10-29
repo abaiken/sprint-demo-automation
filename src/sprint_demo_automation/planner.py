@@ -291,16 +291,13 @@ def load_create_deck_anniversaries(
     source_presentation_id: str,
     next_demo_date: datetime,
 ) -> list[Anniversary]:
-    from .google_services import build_slides_service
+    from .google_backend import get_backend
     from .slides_client import load_upcoming_anniversaries
 
     if not hire_date_source_configured(config):
         return []
 
-    slides_service = build_slides_service(config)
-    presentation = (
-        slides_service.presentations().get(presentationId=source_presentation_id).execute()
-    )
+    presentation = get_backend(config).get_presentation(source_presentation_id)
     return load_upcoming_anniversaries(config, presentation, next_demo_date)
 
 

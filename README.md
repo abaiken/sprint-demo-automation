@@ -44,7 +44,8 @@ Walkout candidate selection currently prefers:
 
 - `src/sprint_demo_automation/cli.py` - command-line entrypoint
 - `src/sprint_demo_automation/config.py` - config loading
-- `src/sprint_demo_automation/google_auth.py` - Google OAuth helpers
+- `src/sprint_demo_automation/google_auth.py` - Google OAuth helpers (API backend)
+- `src/sprint_demo_automation/google_backend.py` - Google transport selection (`api` or `gws`) and both implementations
 - `src/sprint_demo_automation/calendar_client.py` - next-demo date lookup
 - `src/sprint_demo_automation/drive_client.py` - source deck lookup
 - `src/sprint_demo_automation/slides_client.py` - live deck copy and slide edits
@@ -60,7 +61,8 @@ Walkout candidate selection currently prefers:
 cd /path/to/sprint-demo-automation
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e .            # gws CLI backend
+# or: pip install -e ".[api]"   # Google API client backend
 cp .env.example .env
 ```
 
@@ -100,11 +102,10 @@ Notes:
 
 1. Clone the repo somewhere local
 2. Create and activate a virtualenv
-3. Install the package with `pip install -e .`
+3. Install the package with `pip install -e .` (plus `"./[api]"` if they will use the Google API client instead of `gws`)
 4. Copy `.env.example` to `.env`
 5. Set the values in `.env` for:
-   - a Google OAuth desktop client JSON
-   - a Google token path
+   - either a working `gws` login or a Google OAuth desktop client JSON plus token path (see [Google Backend Options](#google-backend-options))
    - the source Drive folder or source presentation
    - the presenter team order
    - optionally a destination Drive folder
@@ -113,13 +114,49 @@ Notes:
 
 ## Google Setup
 
-You need a Google OAuth desktop client JSON that can access:
+This tool supports two Google transports, selected with `SPRINT_DEMO_GOOGLE_BACKEND` (`auto`, `api`, or `gws`).
+
+- `api` uses the Google API Python client and a desktop OAuth client JSON, exactly as this project did before.
+- `gws` shells out to the [googleworkspace/cli](https://github.com/googleworkspace/cli) binary, which owns the OAuth consent and token storage. No `credentials.json` or token file is needed by this project.
+- `auto` (the default) uses `api` when `google_credentials_path` or `google_token_path` already exists, otherwise `gws` when the `gws` binary is on `PATH`, otherwise `api`.
+
+Both backends need access to Google Calendar, Google Drive, Google Slides, and (optionally) Google Sheets:
 
 - Google Calendar
 - Google Drive
 - Google Slides
+- Google Sheets (only for a Sheet-based hire-dates source)
 
 Do not store live credentials or tokens in the repo.
+
+### Google Backend Options
+
+#### Option A: `gws` CLI backend (no OAuth client JSON in this project)
+
+1. Install the CLI: `brew install googleworkspace-cli`, `npm install -g @googleworkspace/cli`, or a release binary from the [releases page](https://github.com/googleworkspace/cli/releases).
+2. Authenticate once with the scopes this tool uses:
+
+```bash
+gws auth setup          # first time: creates/links a Google Cloud project
+# or, with an existing project and OAuth client:
+gws auth login -s drive,slides,calendar,sheets
+```
+
+3. Set `SPRINT_DEMO_GOOGLE_BACKEND=gws` in `.env` (or leave it `auto` and skip the credential paths).
+
+For headless or CI runs, export a token or credentials file instead of logging in interactively:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_TOKEN=$(gcloud auth print-access-token)
+# or
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/absolute/path/to/credentials.json
+```
+
+`gws` keeps its own credentials outside this repo (by default under `~/.config/gws`), so `SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH` and `SPRINT_DEMO_GOOGLE_TOKEN_PATH` are ignored in this mode.
+
+#### Option B: Google API client backend
+
+Set `SPRINT_DEMO_GOOGLE_BACKEND=api`, install the extras with `pip install -e ".[api]"`, and follow the OAuth client steps below.
 
 ### If You Need To Create A Google OAuth Client
 
@@ -158,7 +195,7 @@ SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH=/absolute/path/to/credentials.json
 SPRINT_DEMO_GOOGLE_TOKEN_PATH=/absolute/path/to/google_token.json
 ```
 
-On the first calendar-backed or Slides-backed run, a browser window opens for consent and stores a token locally.
+On the first calendar-backed or Slides-backed run, a browser window opens for consent and stores a token locally (API backend only).
 If the local browser callback cannot bind to a localhost port, the tool falls back to a manual flow: it prints an auth URL and prompts you to paste the redirected URL back into the terminal.
 
 ## Environment Variables
@@ -171,9 +208,11 @@ Edit `.env` and set:
 - optional `SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV`
 - optional `SPRINT_DEMO_HIRE_DATES_SHEET_URL` or `SPRINT_DEMO_HIRE_DATES_SHEET_ID`
 - optional `SPRINT_DEMO_HIRE_DATES_SHEET_RANGE`
-- `SPRINT_DEMO_TEAM_ORDER`
-- `SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH`
-- `SPRINT_DEMO_GOOGLE_TOKEN_PATH`
+- `SPRINT_DEMO_TEAM_ORDER` (optional comma-separated presenter order)
+- optional `SPRINT_DEMO_GOOGLE_BACKEND` (`auto`, `api`, or `gws`; defaults to `auto`)
+- `SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH` (API backend only; ignored with `gws`)
+- `SPRINT_DEMO_GOOGLE_TOKEN_PATH` (API backend only; ignored with `gws`)
+- `GOOGLE_WORKSPACE_CLI_TOKEN`, `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE`, `GOOGLE_WORKSPACE_CLI_CONFIG_DIR` (`gws` backend only; read by the CLI, not this project)
 
 Notes:
 
@@ -192,8 +231,12 @@ Example local-only values:
 SPRINT_DEMO_NEXT_DEMO_EVENT_TITLE="Sprint Demo"
 SPRINT_DEMO_SOURCE_DRIVE_FOLDER_URL="https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
 SPRINT_DEMO_DESTINATION_DRIVE_FOLDER_URL="https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
-SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH="/absolute/path/to/credentials.json"
-SPRINT_DEMO_GOOGLE_TOKEN_PATH="/absolute/path/to/google_token.json"
+# gws backend: nothing else needed for Google auth
+SPRINT_DEMO_GOOGLE_BACKEND="gws"
+# api backend instead:
+# SPRINT_DEMO_GOOGLE_BACKEND="api"
+# SPRINT_DEMO_GOOGLE_CREDENTIALS_PATH="/absolute/path/to/credentials.json"
+# SPRINT_DEMO_GOOGLE_TOKEN_PATH="/absolute/path/to/google_token.json"
 SPRINT_DEMO_DEFAULT_HIRE_DATES_CSV="/absolute/path/to/hire-dates.csv"
 # OR use a Google Sheet instead of a local CSV
 SPRINT_DEMO_HIRE_DATES_SHEET_URL="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
@@ -209,9 +252,9 @@ If someone prefers a local config file instead of `.env`, they can still copy `c
 
 A ceremonies coordinator only needs to do these things:
 
-1. Install Python dependencies
+1. Install Python dependencies (`pip install -e .` for the `gws` backend, or `pip install -e ".[api]"` for the API backend)
 2. Create a local `.env`
-3. Point the tool at a Google OAuth client file
+3. Pick a Google backend: either run `gws auth login -s drive,slides,calendar,sheets`, or point the tool at a Google OAuth client file
 4. Set the presenter team order in `.env`
 5. Optionally set a hire-dates source, either a local CSV path or a Google Sheet
 6. Run `create-deck`
@@ -243,6 +286,15 @@ sprint-demo next-demo-date
 ```bash
 sprint-demo resolve-source-deck --folder-id "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
 ```
+
+### Preview the next deck without copying or editing
+
+```bash
+sprint-demo create-deck --dry-run
+```
+
+This resolves the source deck and prints the proposed file name, destination folder,
+slide count, and the number of Slides API updates that would be applied.
 
 ### Create the next deck from the latest presentation in a Drive folder
 

@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
-.egg-info/
+*.egg-info/
 .env
 config.toml
 credentials.json

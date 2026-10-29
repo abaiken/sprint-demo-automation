@@ -75,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--source-presentation-url",
         help="Optional explicit source presentation URL override",
     )
+    create_deck.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve the source deck and report what would change without copying or editing",
+    )
 
     inspect_order = subparsers.add_parser(
         "inspect-team-order",
@@ -136,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "create-deck":
         from .calendar_client import compute_next_demo_date
-        from .slides_client import create_next_sprint_deck
+        from .slides_client import create_next_sprint_deck, preview_next_sprint_deck
 
         if args.folder_id:
             config.source_drive_folder_id = args.folder_id
@@ -146,6 +151,15 @@ def main(argv: list[str] | None = None) -> int:
             config.source_presentation_url = args.source_presentation_url
 
         next_demo_date = compute_next_demo_date(config)
+        if args.dry_run:
+            print(
+                json.dumps(
+                    preview_next_sprint_deck(config, next_demo_date),
+                    indent=2,
+                )
+            )
+            return 0
+
         result = create_next_sprint_deck(config, next_demo_date)
         print(
             build_create_deck_todo(
