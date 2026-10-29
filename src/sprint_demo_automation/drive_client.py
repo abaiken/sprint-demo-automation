@@ -4,10 +4,12 @@ import re
 from datetime import datetime
 
 from .config import AppConfig
+from .google_backend import get_backend
 from .google_ids import extract_google_file_id
-from .google_services import build_drive_service
 
 GOOGLE_SLIDES_MIME_TYPE = "application/vnd.google-apps.presentation"
+
+FILE_FIELDS = "id,name,webViewLink,createdTime,modifiedTime,parents"
 
 
 def resolve_source_presentation(config: AppConfig, folder_id: str | None = None) -> dict:
@@ -30,23 +32,15 @@ def resolve_source_presentation(config: AppConfig, folder_id: str | None = None)
 
 
 def find_latest_presentation_in_folder(config: AppConfig, folder_id: str) -> dict:
-    service = build_drive_service(config)
-    result = (
-        service.files()
-        .list(
-            q=(
-                f"'{folder_id}' in parents and "
-                f"mimeType='{GOOGLE_SLIDES_MIME_TYPE}' and trashed=false"
-            ),
-            fields="files(id,name,webViewLink,createdTime,modifiedTime,parents)",
-            orderBy="createdTime desc",
-            pageSize=50,
-            supportsAllDrives=True,
-            includeItemsFromAllDrives=True,
-        )
-        .execute()
+    files = get_backend(config).list_drive_files(
+        query=(
+            f"'{folder_id}' in parents and "
+            f"mimeType='{GOOGLE_SLIDES_MIME_TYPE}' and trashed=false"
+        ),
+        fields=f"files({FILE_FIELDS})",
+        order_by="createdTime desc",
+        page_size=50,
     )
-    files = result.get("files", [])
     if not files:
         raise RuntimeError(f"No Google Slides presentations found in folder {folder_id}")
 
@@ -70,28 +64,11 @@ def find_latest_presentation_in_folder(config: AppConfig, folder_id: str) -> dic
 
 
 def get_file_metadata(config: AppConfig, file_id: str) -> dict:
-    service = build_drive_service(config)
-    return (
-        service.files()
-        .get(
-            fileId=file_id,
-            fields="id,name,webViewLink,createdTime,modifiedTime,parents",
-            supportsAllDrives=True,
-        )
-        .execute()
-    )
+    return get_backend(config).get_drive_file(file_id=file_id, fields=FILE_FIELDS)
 
 
 def delete_file(config: AppConfig, file_id: str) -> None:
-    service = build_drive_service(config)
-    (
-        service.files()
-        .delete(
-            fileId=file_id,
-            supportsAllDrives=True,
-        )
-        .execute()
-    )
+    get_backend(config).delete_drive_file(file_id)
 
 
 def looks_like_generated_copy(name: str) -> bool:

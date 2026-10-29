@@ -5,12 +5,18 @@ description = "Local Python tooling for sprint demo ceremony coordination"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "google-api-python-client>=2.100.0",
-    "google-auth-oauthlib>=1.2.0",
     "python-dotenv>=1.0.0",
     "requests>=2.32.0",
     "slack-sdk>=3.27.0",
     "tomli>=2.0.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+# Only needed when SPRINT_DEMO_GOOGLE_BACKEND=api (the default inside "auto"
+# when OAuth credentials already exist). The gws CLI backend does not need these.
+api = [
+    "google-api-python-client>=2.100.0",
+    "google-auth-oauthlib>=1.2.0",
 ]
 
 [project.scripts]

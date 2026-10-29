@@ -15,8 +15,13 @@ default_hire_dates_csv = ""
 hire_dates_sheet_id = ""
 hire_dates_sheet_url = ""
 hire_dates_sheet_range = ""
+# Only used by the "api" backend; ignored when google_backend = "gws"
 google_credentials_path = ""
-google_token_path = ""
+# auto: use the API client when OAuth credentials exist, otherwise gws if installed
+# api: always use the Google API Python client
+# gws: always use the googleworkspace/cli binary
+google_backend = "auto"
+google_token_path = ""  # api backend only; ignored with gws
 new_deck_name_template = "Sprint Demo - {{nextDate}}"
 lead_reminder_template = "Leads: please fill out your sprint demo slides for {{deckName}}: {{deckUrl}}"
 rotate_team_order_for_next_sprint = true

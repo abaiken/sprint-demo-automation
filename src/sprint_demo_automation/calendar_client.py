@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .config import AppConfig
+from .google_backend import get_backend
 from .google_services import CALENDAR_SCOPES, DRIVE_SCOPES, SHEETS_SCOPES, SLIDES_SCOPES
 
 ALL_REQUIRED_SCOPES = sorted(
@@ -28,16 +29,7 @@ def compute_next_demo_date(config: AppConfig) -> datetime:
 
 
 def lookup_next_demo_date_from_calendar(config: AppConfig) -> datetime | None:
-    from googleapiclient.discovery import build
-
-    from .google_auth import load_google_credentials
-
-    creds = load_google_credentials(
-        scopes=ALL_REQUIRED_SCOPES,
-        credentials_path=config.google_credentials_path,
-        token_path=config.google_token_path,
-    )
-    service = build("calendar", "v3", credentials=creds)
+    backend = get_backend(config)
 
     now = datetime.now(ZoneInfo(config.timezone))
     window_end = now + timedelta(days=config.calendar_search_window_days)
@@ -50,20 +42,14 @@ def lookup_next_demo_date_from_calendar(config: AppConfig) -> datetime | None:
     seen_event_ids: set[str] = set()
     candidate_events: list[dict] = []
     for query in search_queries:
-        result = (
-            service.events()
-            .list(
-                calendarId=config.calendar_id,
-                timeMin=now.isoformat(),
-                timeMax=window_end.isoformat(),
-                q=query,
-                singleEvents=True,
-                orderBy="startTime",
-                maxResults=25,
-            )
-            .execute()
+        events = backend.list_calendar_events(
+            calendar_id=config.calendar_id,
+            time_min=now.isoformat(),
+            time_max=window_end.isoformat(),
+            query=query,
+            max_results=25,
         )
-        for event in result.get("items", []):
+        for event in events:
             event_id = str(event.get("id", ""))
             if event_id and event_id in seen_event_ids:
                 continue

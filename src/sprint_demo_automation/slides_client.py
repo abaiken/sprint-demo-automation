@@ -14,8 +14,8 @@ from .deck_defaults import (
     TeamConfig,
 )
 from .drive_client import delete_file, get_file_metadata
+from .google_backend import get_backend
 from .google_ids import extract_google_file_id
-from .google_services import build_drive_service, build_slides_service
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,35 @@ class ShapeLine:
     end: int
     is_bold: bool
     word_count: int
+
+
+def preview_next_sprint_deck(config: AppConfig, next_demo_date: datetime) -> dict:
+    """Build everything create_next_sprint_deck would apply, without writing."""
+    source = resolve_source_deck_for_copy(config)
+    presentation = get_backend(config).get_presentation(source["id"])
+    requests = build_update_requests(
+        config=config,
+        presentation=presentation,
+        next_demo_date=next_demo_date,
+        should_rotate=config.rotate_team_order_for_next_sprint,
+    )
+    destination_folder_id = (
+        extract_google_file_id(config.destination_drive_folder_id)
+        or extract_google_file_id(config.destination_drive_folder_url)
+        or next(iter(source.get("parents") or []), "")
+    )
+    return {
+        "dryRun": True,
+        "nextDemoDate": next_demo_date.date().isoformat(),
+        "sourcePresentation": source,
+        "proposedFileName": build_new_file_name(source["name"], next_demo_date),
+        "destinationFolderId": destination_folder_id,
+        "slideCount": len(presentation.get("slides", [])),
+        "requestCount": len(requests),
+        "diagnostics": build_reorder_diagnostics(
+            presentation, config.rotate_team_order_for_next_sprint
+        ),
+    }
 
 
 def create_next_sprint_deck(config: AppConfig, next_demo_date: datetime) -> dict:
@@ -67,10 +96,8 @@ def create_next_sprint_deck(config: AppConfig, next_demo_date: datetime) -> dict
 
 def inspect_presentation_team_order(config: AppConfig) -> dict:
     source = resolve_source_deck_for_copy(config)
-    slides_service = build_slides_service(config)
-    presentation = (
-        slides_service.presentations().get(presentationId=source["id"]).execute()
-    )
+    backend = get_backend(config)
+    presentation = backend.get_presentation(source["id"])
     return {
         "sourcePresentation": source,
         "configuredTeamOrder": config.team_order,
@@ -100,7 +127,7 @@ def copy_presentation(
     destination_folder_id: str | None,
     source_parent_ids: list[str],
 ) -> dict:
-    service = build_drive_service(config)
+    backend = get_backend(config)
     body = {"name": new_name}
     parsed_destination_folder_id = extract_google_file_id(destination_folder_id or "")
     if not parsed_destination_folder_id:
@@ -117,15 +144,10 @@ def copy_presentation(
     elif source_parent_ids:
         body["parents"] = source_parent_ids
 
-    return (
-        service.files()
-        .copy(
-            fileId=source_presentation_id,
-            body=body,
-            fields="id,name,webViewLink,parents,createdTime,modifiedTime",
-            supportsAllDrives=True,
-        )
-        .execute()
+    return backend.copy_drive_file(
+        file_id=source_presentation_id,
+        body=body,
+        fields="id,name,webViewLink,parents,createdTime,modifiedTime",
     )
 
 
@@ -134,10 +156,8 @@ def apply_standard_updates(
     presentation_id: str,
     next_demo_date: datetime,
 ) -> dict:
-    slides_service = build_slides_service(config)
-    presentation = (
-        slides_service.presentations().get(presentationId=presentation_id).execute()
-    )
+    backend = get_backend(config)
+    presentation = backend.get_presentation(presentation_id)
     diagnostics = build_reorder_diagnostics(
         presentation, config.rotate_team_order_for_next_sprint
     )
@@ -150,10 +170,10 @@ def apply_standard_updates(
     if not requests:
         return {"updated": False, "requestCount": 0, "diagnostics": diagnostics}
 
-    slides_service.presentations().batchUpdate(
-        presentationId=presentation_id,
-        body={"requests": requests},
-    ).execute()
+    backend.batch_update_presentation(
+        presentation_id=presentation_id,
+        requests=requests,
+    )
     return {"updated": True, "requestCount": len(requests), "diagnostics": diagnostics}
 
 
